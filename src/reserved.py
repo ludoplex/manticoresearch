@@ -7,9 +7,8 @@ def die(m):
 	exit(1)
 
 def load(n):
-	f = open(n)
-	v = f.read()
-	f.close()
+	with open(n) as f:
+		v = f.read()
 	return v
 
 def diff(a, b):
@@ -18,12 +17,11 @@ def diff(a, b):
 
 # load special tokens from lexer
 res = []
-f = open('sphinxql.l')
-for line in f:
-	r = re.match('^"(\w+)"\s+', line)
-	if r:
-		res.append(r.group(1))
-f.close()
+with open('sphinxql.l') as f:
+	for line in f:
+		r = re.match('^"(\w+)"\s+', line)
+		if r:
+			res.append(r[1])
 if not res:
 	die('failed to extract resreved keywords from src/sphinxql.l')
 
@@ -31,20 +29,24 @@ if not res:
 r = re.search('ALL_IDENT_LIST(.*?)ALL_IDENT_LIST_END', load('sphinxql.y'), re.MULTILINE + re.DOTALL)
 if not r:
 	die('failed to extract ident_set_no_option from src/sphinxql.y')
-handled = [k[4:] for k in re.findall('\w+', r.group(1)) if k!='TOK_IDENT' and k[0:4]=='TOK_']
+handled = [
+	k[4:]
+	for k in re.findall('\w+', r[1])
+	if k != 'TOK_IDENT' and k[:4] == 'TOK_'
+]
 res = sorted(diff(res, handled))
 
 # load reserved keywords list from docs
 r = re.search('List of reserved keywords.*?```(.*)```', load('../manual/References.md'), re.MULTILINE + re.DOTALL)
 if not r:
 	die('failed to extract reserved keywords from manual/References.md')
-doc = [k for k in re.findall('(\w+)', r.group(1))]
+doc = list(re.findall('(\w+)', r[1]))
 
 # load reserved keywords list from sources
 r = re.search('dReserved\[\]\s+=\s+\{(.*?)\}', load('schema/schema.cpp'), re.MULTILINE + re.DOTALL)
 if not r:
 	die('failed to extract reserved keywords from src/schema/schema.cpp')
-src = [k for k in re.findall('"(\w+)"', r.group(1))]
+src = list(re.findall('"(\w+)"', r[1]))
 
 
 # now report
@@ -57,7 +59,7 @@ if not_in_docs:
 		if len(s) + len(k) >= 60:
 			print (s.strip())
 			s = ''
-		s += k + ', '
+		s += f'{k}, '
 	if s:
 		print (s.strip()[:-1])
 	print ('\n')
@@ -71,7 +73,7 @@ if not_in_src:
 		if len(s) + len(k) >= 80:
 			print ('\t\t' + s.strip())
 			s = ''
-		s += '"%s", ' % k
+		s += f'"{k}", '
 	print ('\t\t' + s + 'NULL\n\t};\n')
 
 docs_not_res = sorted(diff(doc, res))

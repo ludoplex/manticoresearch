@@ -226,7 +226,7 @@ class SphinxClient:
 		# set timeout to 0 make connaection non-blocking that is wrong so timeout got clipped to reasonable minimum
 		self._timeout = max ( 0.001, timeout )
 					
-	def _Connect (self):
+	def _Connect(self):
 		"""
 		INTERNAL METHOD, DO NOT CALL. Connects to searchd server.
 		"""
@@ -257,13 +257,13 @@ class SphinxClient:
 		except socket.error as msg:
 			if sock:
 				sock.close()
-			self._error = 'connection to %s failed (%s)' % ( desc, msg )
+			self._error = f'connection to {desc} failed ({msg})'
 			return
 
 		v = unpack('>L', sock.recv(4))[0]
 		if v<1:
 			sock.close()
-			self._error = 'expected searchd protocol version, got %s' % v
+			self._error = f'expected searchd protocol version, got {v}'
 			return
 
 		# all ok, send my version
@@ -271,7 +271,7 @@ class SphinxClient:
 		return sock
 
 
-	def _GetResponse (self, sock, client_ver):
+	def _GetResponse(self, sock, client_ver):
 		"""
 		INTERNAL METHOD, DO NOT CALL. Gets and checks response packet from searchd server.
 		"""
@@ -279,8 +279,7 @@ class SphinxClient:
 		response = bytearray()
 		left = length
 		while left>0:
-			chunk = sock.recv(left)
-			if chunk:
+			if chunk := sock.recv(left):
 				response += chunk
 				left -= len(chunk)
 			else:
@@ -293,24 +292,23 @@ class SphinxClient:
 		read = len(response)
 		if not response or read!=length:
 			if length:
-				self._error = 'failed to read searchd response (status=%s, ver=%s, len=%s, read=%s)' \
-					% (status, ver, length, read)
+				self._error = f'failed to read searchd response (status={status}, ver={ver}, len={length}, read={read})'
 			else:
 				self._error = 'received zero-sized searchd response'
 			return None
 
 		# check status
 		if status==SEARCHD_WARNING:
-			wend = 4 + unpack ( '>L', response[0:4] )[0]
+			wend = 4 + unpack('>L', response[:4])[0]
 			self._warning = bytes_str(response[4:wend])
 			return response[wend:]
 
 		if status==SEARCHD_ERROR:
-			self._error = 'searchd error: ' + bytes_str(response[4:])
+			self._error = f'searchd error: {bytes_str(response[4:])}'
 			return None
 
 		if status==SEARCHD_RETRY:
-			self._error = 'temporary searchd error: ' + bytes_str(response[4:])
+			self._error = f'temporary searchd error: {bytes_str(response[4:])}'
 			return None
 
 		if status!=SEARCHD_OK:
@@ -320,7 +318,7 @@ class SphinxClient:
 		# check version
 		if ver<client_ver:
 			self._warning = 'searchd command v.%d.%d older than client\'s v.%d.%d, some options might not work' \
-				% (ver>>8, ver&0xff, client_ver>>8, client_ver&0xff)
+					% (ver>>8, ver&0xff, client_ver>>8, client_ver&0xff)
 
 		return response
 
@@ -535,12 +533,12 @@ class SphinxClient:
 		assert(isinstance(select, (str,text_type)))
 		self._select = str_bytes(select)
 
-	def SetQueryFlag ( self, name, value ):
+	def SetQueryFlag( self, name, value ):
 		known_names = [ "reverse_scan", "sort_method", "max_predicted_time", "boolean_simplify", "idf", "global_idf" ]
 		flags = { "reverse_scan":[0, 1], "sort_method":["pq", "kbuffer"],"max_predicted_time":[0], "boolean_simplify":[True, False], "idf":["normalized", "plain", "tfidf_normalized", "tfidf_unnormalized"], "global_idf":[True, False] }
 		assert ( name in known_names )
 		assert ( value in flags[name] or ( name=="max_predicted_time" and isinstance(value, (int, long)) and value>=0))
-		
+
 		if name=="reverse_scan":
 			self._query_flags = SetBit ( self._query_flags, 0, value==1 )
 		if name=="sort_method":
@@ -550,11 +548,11 @@ class SphinxClient:
 			self._predictedtime = int(value)
 		if name=="boolean_simplify":
 			self._query_flags= SetBit ( self._query_flags, 3, value )
-		if name=="idf" and ( value=="plain" or value=="normalized" ) :
+		if name == "idf" and value in ["plain", "normalized"]:
 			self._query_flags = SetBit ( self._query_flags, 4, value=="plain" )
 		if name=="global_idf":
 			self._query_flags= SetBit ( self._query_flags, 5, value )
-		if name=="idf" and ( value=="tfidf_normalized" or value=="tfidf_unnormalized" ) :
+		if name == "idf" and value in ["tfidf_normalized", "tfidf_unnormalized"]:
 			self._query_flags = SetBit ( self._query_flags, 6, value=="tfidf_normalized" )
 
 	def SetOuterSelect ( self, orderby, offset, limit ):
@@ -609,7 +607,7 @@ class SphinxClient:
 		self._outerlimit = 0
 		self._hasouter = False
 
-	def Query (self, query, index='*', comment=''):
+	def Query(self, query, index='*', comment=''):
 		"""
 		Connect to searchd server and run given search query.
 		Returns None on failure; result set hash on success (see documentation for details).
@@ -623,9 +621,7 @@ class SphinxClient:
 			return None
 		self._error = results[0]['error']
 		self._warning = results[0]['warning']
-		if results[0]['status'] == SEARCHD_ERROR:
-			return None
-		return results[0]
+		return None if results[0]['status'] == SEARCHD_ERROR else results[0]
 
 
 	def AddQuery (self, query, index='*', comment=''):
@@ -765,7 +761,7 @@ class SphinxClient:
 		return
 
 
-	def RunQueries (self):
+	def RunQueries(self):
 		"""
 		Run queries batch.
 		Returns None on network IO failure; or an array of result set hashes on success.
@@ -798,7 +794,7 @@ class SphinxClient:
 		p = 0
 
 		results = []
-		for i in range(0,nreqs,1):
+		for _ in range(0,nreqs,1):
 			result = {}
 			results.append(result)
 
@@ -853,7 +849,7 @@ class SphinxClient:
 			p += 4
 			id64 = unpack('>L', response[p:p+4])[0]
 			p += 4
-		
+
 			# read matches
 			result['matches'] = []
 			while count>0 and p<max_:
@@ -866,46 +862,46 @@ class SphinxClient:
 					p += 8
 
 				match = { 'id':doc, 'weight':weight, 'attrs':{} }
-				for i in range(len(attrs)):
-					if attrs[i][1] == SPH_ATTR_FLOAT:
-						match['attrs'][attrs[i][0]] = unpack('>f', response[p:p+4])[0]
-					elif attrs[i][1] == SPH_ATTR_BIGINT:
-						match['attrs'][attrs[i][0]] = unpack('>q', response[p:p+8])[0]
+				for attr_ in attrs:
+					if attr_[1] == SPH_ATTR_FLOAT:
+						match['attrs'][attr_[0]] = unpack('>f', response[p:p+4])[0]
+					elif attr_[1] == SPH_ATTR_BIGINT:
+						match['attrs'][attr_[0]] = unpack('>q', response[p:p+8])[0]
 						p += 4
-					elif attrs[i][1] == SPH_ATTR_STRING:
+					elif attr_[1] == SPH_ATTR_STRING:
 						slen = unpack('>L', response[p:p+4])[0]
 						p += 4
-						match['attrs'][attrs[i][0]] = ''
+						match['attrs'][attr_[0]] = ''
 						if slen>0:
-							match['attrs'][attrs[i][0]] = bytes_str(response[p:p+slen])
+							match['attrs'][attr_[0]] = bytes_str(response[p:p+slen])
 						p += slen-4
-					elif attrs[i][1] == SPH_ATTR_FACTORS:
+					elif attr_[1] == SPH_ATTR_FACTORS:
 						slen = unpack('>L', response[p:p+4])[0]
 						p += 4
-						match['attrs'][attrs[i][0]] = ''
+						match['attrs'][attr_[0]] = ''
 						if slen>0:
-							match['attrs'][attrs[i][0]] = response[p:p+slen-4]
+							match['attrs'][attr_[0]] = response[p:p+slen-4]
 							p += slen-4
 						p -= 4
-					elif attrs[i][1] == SPH_ATTR_MULTI:
-						match['attrs'][attrs[i][0]] = []
+					elif attr_[1] == SPH_ATTR_MULTI:
+						match['attrs'][attr_[0]] = []
 						nvals = unpack('>L', response[p:p+4])[0]
 						p += 4
-						for n in range(0,nvals,1):
-							match['attrs'][attrs[i][0]].append(unpack('>L', response[p:p+4])[0])
+						for _ in range(0,nvals,1):
+							match['attrs'][attr_[0]].append(unpack('>L', response[p:p+4])[0])
 							p += 4
 						p -= 4
-					elif attrs[i][1] == SPH_ATTR_MULTI64:
-						match['attrs'][attrs[i][0]] = []
+					elif attr_[1] == SPH_ATTR_MULTI64:
+						match['attrs'][attr_[0]] = []
 						nvals = unpack('>L', response[p:p+4])[0]
 						nvals = nvals/2
 						p += 4
-						for n in range(0,nvals,1):
-							match['attrs'][attrs[i][0]].append(unpack('>q', response[p:p+8])[0])
+						for _ in range(0,nvals,1):
+							match['attrs'][attr_[0]].append(unpack('>q', response[p:p+8])[0])
 							p += 8
 						p -= 4
 					else:
-						match['attrs'][attrs[i][0]] = unpack('>L', response[p:p+4])[0]
+						match['attrs'][attr_[0]] = unpack('>L', response[p:p+4])[0]
 					p += 4
 
 				result['matches'].append ( match )
@@ -926,12 +922,12 @@ class SphinxClient:
 				p += 8
 
 				result['words'].append({'word':word, 'docs':docs, 'hits':hits})
-		
+
 		self._reqs = []
 		return results
 	
 
-	def BuildExcerpts (self, docs, index, words, opts=None):
+	def BuildExcerpts(self, docs, index, words, opts=None):
 		"""
 		Connect to searchd server and generate exceprts from given documents.
 		"""
@@ -974,7 +970,7 @@ class SphinxClient:
 		if opts.get('allow_empty'):		flags |= 256
 		if opts.get('emit_zones'):		flags |= 512
 		if opts.get('load_files_scattered'):	flags |= 1024
-		
+
 		# mode=0, flags
 		req = bytearray()
 		req.extend(pack('>2L', 0, flags))
@@ -1004,7 +1000,7 @@ class SphinxClient:
 
 		req.extend(pack('>L', int(opts['limit'])))
 		req.extend(pack('>L', int(opts['around'])))
-		
+
 		req.extend(pack('>L', int(opts['limit_passages'])))
 		req.extend(pack('>L', int(opts['limit_words'])))
 		req.extend(pack('>L', int(opts['start_passage_id'])))
@@ -1040,7 +1036,7 @@ class SphinxClient:
 		res = []
 		rlen = len(response)
 
-		for i in range(len(docs)):
+		for _ in range(len(docs)):
 			length = unpack('>L', response[pos:pos+4])[0]
 			pos += 4
 
@@ -1054,7 +1050,7 @@ class SphinxClient:
 		return res
 
 
-	def UpdateAttributes ( self, index, attrs, values, mva=False, ignorenonexistent=False ):
+	def UpdateAttributes( self, index, attrs, values, mva=False, ignorenonexistent=False ):
 		"""
 		Update given attribute values on given documents in given indexes.
 		Returns amount of updated documents (0 or more) on success, or -1 on failure.
@@ -1093,11 +1089,9 @@ class SphinxClient:
 		req.extend( pack('>L',len(index)) + index )
 
 		req.extend ( pack('>L',len(attrs)) )
-		ignore_absent = 0
-		if ignorenonexistent: ignore_absent = 1
+		ignore_absent = 1 if ignorenonexistent else 0
 		req.extend ( pack('>L', ignore_absent ) )
-		mva_attr = 0
-		if mva: mva_attr = 1
+		mva_attr = 1 if mva else 0
 		for attr in attrs:
 			attr = str_bytes(attr)
 			req.extend ( pack('>L',len(attr)) + attr )
@@ -1126,15 +1120,10 @@ class SphinxClient:
 		self._Send ( sock, req_all )
 
 		response = self._GetResponse ( sock, VER_COMMAND_UPDATE )
-		if not response:
-			return -1
-
-		# parse response
-		updated = unpack ( '>L', response[0:4] )[0]
-		return updated
+		return -1 if not response else unpack('>L', response[:4])[0]
 
 
-	def BuildKeywords ( self, query, index, hits ):
+	def BuildKeywords( self, query, index, hits ):
 		"""
 		Connect to searchd server, and generate keywords list for a given query.
 		Returns None on failure, or a list of keywords on success.
@@ -1169,7 +1158,7 @@ class SphinxClient:
 		# parse response
 		res = []
 
-		nwords = unpack ( '>L', response[0:4] )[0]
+		nwords = unpack('>L', response[:4])[0]
 		p = 4
 		max_ = len(response)
 
@@ -1199,7 +1188,7 @@ class SphinxClient:
 
 		return res
 
-	def Status ( self, session=False ):
+	def Status( self, session=False ):
 		"""
 		Get the status
 		"""
@@ -1209,10 +1198,7 @@ class SphinxClient:
 		if not sock:
 			return None
 
-		sess = 1
-		if session:
-			sess = 0
-
+		sess = 0 if session else 1
 		req = pack ( '>2HLL', SEARCHD_COMMAND_STATUS, VER_COMMAND_STATUS, 4, sess )
 		self._Send ( sock, req )
 
@@ -1279,8 +1265,7 @@ class SphinxClient:
 			self._error = 'unexpected response length'
 			return -1
 
-		tag = unpack ( '>L', response[0:4] )[0]
-		return tag
+		return unpack('>L', response[:4])[0]
 
 def AssertInt32 ( value ):
 	assert(isinstance(value, (int, long)))
@@ -1304,10 +1289,7 @@ if sys.version_info > (3,):
 		return bytearray(x, 'utf-8')
 else:
 	def str_bytes(x):
-		if isinstance(x,unicode):
-			return bytearray(x, 'utf-8')
-		else:
-			return bytearray(x)
+		return bytearray(x, 'utf-8') if isinstance(x,unicode) else bytearray(x)
 
 def bytes_str(x):
 	assert (isinstance(x, bytearray))

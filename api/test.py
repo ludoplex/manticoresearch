@@ -38,10 +38,10 @@ limit = 0
 i = 1
 while (i<len(sys.argv)):
 	arg = sys.argv[i]
-	if arg=='-h' or arg=='--host':
+	if arg in ['-h', '--host']:
 		i += 1
 		host = sys.argv[i]
-	elif arg=='-p' or arg=='--port':
+	elif arg in ['-p', '--port']:
 		i += 1
 		port = int(sys.argv[i])
 	elif arg=='-i':
@@ -50,29 +50,29 @@ while (i<len(sys.argv)):
 	elif arg=='-s':
 		i += 1
 		sortby = sys.argv[i]
-	elif arg=='-a' or arg=='--any':
+	elif arg in ['-a', '--any']:
 		mode = SPH_MATCH_ANY
-	elif arg=='-b' or arg=='--boolean':
+	elif arg in ['-b', '--boolean']:
 		mode = SPH_MATCH_BOOLEAN
-	elif arg=='-e' or arg=='--extended':
+	elif arg in ['-e', '--extended']:
 		mode = SPH_MATCH_EXTENDED
-	elif arg=='-f' or arg=='--filter':
+	elif arg in ['-f', '--filter']:
 		i += 1
 		filtercol = sys.argv[i]
-	elif arg=='-v' or arg=='--value':
+	elif arg in ['-v', '--value']:
 		i += 1
 		filtervals.append ( int(sys.argv[i]) )
-	elif arg=='-g' or arg=='--groupby':
+	elif arg in ['-g', '--groupby']:
 		i += 1
 		groupby = sys.argv[i]
-	elif arg=='-gs' or arg=='--groupsort':
+	elif arg in ['-gs', '--groupsort']:
 		i += 1
 		groupsort = sys.argv[i]
-	elif arg=='-l' or arg=='--limit':
+	elif arg in ['-l', '--limit']:
 		i += 1
 		limit = int(sys.argv[i])
 	else:
-		q = '%s%s ' % ( q, arg )
+		q = f'{q}{arg} '
 	i += 1
 
 # do query
@@ -90,7 +90,7 @@ if limit:
 res = cl.Query ( q, index )
 
 if not res:
-	print('query failed: %s' % cl.GetLastError())
+	print(f'query failed: {cl.GetLastError()}')
 	sys.exit(1)
 
 if cl.GetLastWarning():
@@ -104,9 +104,8 @@ if 'words' in res:
 		print('\t\'%s\' found %d times in %d documents' % (info['word'], info['hits'], info['docs']))
 
 if 'matches' in res:
-	n = 1
 	print('\nMatches:')
-	for match in res['matches']:
+	for n, match in enumerate(res['matches'], start=1):
 		attrsdump = ''
 		for attr in res['attrs']:
 			attrname = attr[0]
@@ -114,10 +113,9 @@ if 'matches' in res:
 			value = match['attrs'][attrname]
 			if attrtype==SPH_ATTR_TIMESTAMP:
 				value = time.strftime ( '%Y-%m-%d %H:%M:%S', time.localtime(value) )
-			attrsdump = '%s, %s=%s' % ( attrsdump, attrname, value )
+			attrsdump = f'{attrsdump}, {attrname}={value}'
 
 		print('%d. doc_id=%s, weight=%d%s' % (n, match['id'], match['weight'], attrsdump))
-		n += 1
 
 #
 # $Id$

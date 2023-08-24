@@ -20,10 +20,7 @@ class VecTraitsSynthProvider:
             start_val = self.pData.GetValueAsUnsigned(0)
 
             # Make sure nothing is NULL
-            if start_val == 0:
-                return 0
-
-            return self.iCount
+            return 0 if start_val == 0 else self.iCount
         except:
             return 0
 
@@ -34,7 +31,9 @@ class VecTraitsSynthProvider:
             return None
         try:
             offset = index * self.data_size
-            return self.pData.CreateChildAtOffset('[' + str(index) + ']', offset, self.data_type)
+            return self.pData.CreateChildAtOffset(
+                f'[{str(index)}]', offset, self.data_type
+            )
         except:
             return None
 
@@ -72,94 +71,81 @@ def VecTraitsSummaryProvider(valobj, internal_dict):
         content = valobj.GetChildMemberWithName('(content)')
         if content.IsValid():
             return content.GetSummary()
-        else:
-            count = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iCount').GetValueAsUnsigned()
-            return '{} elems'.format(str(count))
+        count = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iCount').GetValueAsUnsigned()
+        return f'{str(count)} elems'
 
 def VecSummaryProvider(valobj, internal_dict):
     if valobj.IsValid():
         content = valobj.GetChildMemberWithName('(content)')
         if content.IsValid():
             return content.GetSummary()
-        else:
-            count = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iCount').GetValueAsUnsigned()
-            limit = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iLimit').GetValueAsUnsigned()
-            return '{} ({}) elems'.format(str(count), str(limit))
+        count = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iCount').GetValueAsUnsigned()
+        limit = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iLimit').GetValueAsUnsigned()
+        return f'{str(count)} ({str(limit)}) elems'
 
 
 def LocatorSummaryProvider(valobj, internal_dict):
-    if valobj.IsValid():
-        content = valobj.GetChildMemberWithName('(content)')
-        if content.IsValid():
-            return content.GetSummary()
-        else:
-            bitoffset = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iBitOffset').GetValueAsSigned()
-            bitcount = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iBitCount').GetValueAsSigned()
-            type = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_bDynamic').GetValueAsUnsigned()
-            stype = 'S'
-            if type:
-                stype = 'D'
-            if bitoffset>0:
-                return '{} {}/{} ({}/{})'.format(stype, str(bitoffset), str(bitcount), str(bitoffset/32), str(bitcount/32))
-            return '{} {}/{}'.format(stype, str(bitoffset), str(bitcount))
+    if not valobj.IsValid():
+        return
+    content = valobj.GetChildMemberWithName('(content)')
+    if content.IsValid():
+        return content.GetSummary()
+    bitoffset = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iBitOffset').GetValueAsSigned()
+    bitcount = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iBitCount').GetValueAsSigned()
+    type = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_bDynamic').GetValueAsUnsigned()
+    stype = 'D' if type else 'S'
+    if bitoffset>0:
+        return f'{stype} {str(bitoffset)}/{str(bitcount)} ({str(bitoffset / 32)}/{str(bitcount / 32)})'
+    return f'{stype} {str(bitoffset)}/{str(bitcount)}'
 
 
 def JsonNodeValue(valobj):
-        svalue = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_sValue')
-        type = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_eType').GetValueAsUnsigned()
-        if type == 0:
-            return 'EOF'
-        elif type == 1 or type == 2:
-            return 'I32({})'.format(
-                str(valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iValue').GetValueAsSigned()))
-        elif type == 3:
-            return 'D({})'.format(str(valobj.GetNonSyntheticValue().GetChildMemberWithName('m_fValue').GetValue()))
-        elif type == 4:
-            return 'STR{}'.format(svalue.GetSummary())
-        elif type == 5:
-            return 'STRV{}'.format(svalue.GetSummary())
-        elif type == 6:
-            return 'I32V{}'.format(svalue.GetSummary())
-        elif type == 7:
-            return 'I64V{}'.format(svalue.GetSummary())
-        elif type == 8:
-            return 'DV{}'.format(svalue.GetSummary())
-        elif type == 9:
-            return 'MV{})'.format(svalue.GetSummary())
-        elif type == 10:
-            return 'OBJ{}'.format(svalue.GetSummary())
-        elif type == 11:
-            return 'TRUE'
-        elif type == 12:
-            return 'FALSE'
-        elif type == 13:
-            return 'NULL'
-        elif type == 14:
-            return 'ROOT{}'.format(svalue.GetSummary())
-        return 'UNKNOWN'
+    svalue = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_sValue')
+    type = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_eType').GetValueAsUnsigned()
+    if type == 0:
+        return 'EOF'
+    elif type in [1, 2]:
+        return f"I32({str(valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iValue').GetValueAsSigned())})"
+    elif type == 3:
+        return f"D({str(valobj.GetNonSyntheticValue().GetChildMemberWithName('m_fValue').GetValue())})"
+    elif type == 4:
+        return f'STR{svalue.GetSummary()}'
+    elif type == 5:
+        return f'STRV{svalue.GetSummary()}'
+    elif type == 6:
+        return f'I32V{svalue.GetSummary()}'
+    elif type == 7:
+        return f'I64V{svalue.GetSummary()}'
+    elif type == 8:
+        return f'DV{svalue.GetSummary()}'
+    elif type == 9:
+        return f'MV{svalue.GetSummary()})'
+    elif type == 10:
+        return f'OBJ{svalue.GetSummary()}'
+    elif type == 11:
+        return 'TRUE'
+    elif type == 12:
+        return 'FALSE'
+    elif type == 13:
+        return 'NULL'
+    elif type == 14:
+        return f'ROOT{svalue.GetSummary()}'
+    return 'UNKNOWN'
 
 def JsonNodeSummaryProvider(valobj, internal_dict):
-    if valobj.IsValid():
-        content = valobj.GetChildMemberWithName('(content)')
-        if content.IsValid():
-            return content.GetSummary()
-        else:
-            svalue = JsonNodeValue(valobj)
-            sname = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_sName')
-            inamelen = sname.GetChildMemberWithName('m_iLen').GetValueAsSigned()
+    if not valobj.IsValid():
+        return
+    content = valobj.GetChildMemberWithName('(content)')
+    if content.IsValid():
+        return content.GetSummary()
+    svalue = JsonNodeValue(valobj)
+    sname = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_sName')
+    inamelen = sname.GetChildMemberWithName('m_iLen').GetValueAsSigned()
 
-            if inamelen != 0:
-                snameval = 'name{}'.format( sname.GetSummary())
-            else:
-                snameval = ''
-
-            inext = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iNext').GetValueAsSigned()
-            if inext>-1:
-                snext = 'next {}'.format(str(inext))
-            else:
-                snext = 'last'
-
-            return '{} {}- {}'.format(svalue, snameval, snext)
+    snameval = f'name{sname.GetSummary()}' if inamelen != 0 else ''
+    inext = valobj.GetNonSyntheticValue().GetChildMemberWithName('m_iNext').GetValueAsSigned()
+    snext = f'next {str(inext)}' if inext>-1 else 'last'
+    return f'{svalue} {snameval}- {snext}'
 
 
 def __lldb_init_module(debugger, unused):
